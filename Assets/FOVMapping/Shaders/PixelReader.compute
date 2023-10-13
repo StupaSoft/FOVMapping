@@ -1,0 +1,20 @@
+﻿#pragma kernel ReadPixels
+
+Texture2D<float4> inputTexture; // Input texture
+
+#define MAX_ENEMY_AGENT_COUNT 128
+int targetAgentCount;
+float4 targetAgentUVs[MAX_ENEMY_AGENT_COUNT];
+
+#pragma bind_buffer(name: outputBuffer, binding: 0)
+RWStructuredBuffer<float> outputBuffer; // Output buffer
+
+[numthreads(1, 1, 1)]
+void ReadPixels(uint3 id : SV_DispatchThreadID)
+{
+	for (int i = 0; i < targetAgentCount; ++i)
+	{
+		float4 color = inputTexture.Load(int3(targetAgentUVs[i].x, targetAgentUVs[i].y, 0));
+		outputBuffer[i] = color.a;
+	}
+}
