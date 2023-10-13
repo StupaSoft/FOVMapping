@@ -10,9 +10,9 @@ public class FOVMapGenerationInfo
 {
 	[Tooltip("(Essential) Path to save the generated FOV map")] public string path = "FOVMapping/FOVMaps";
 	[Tooltip("(Essential) Name of the FOV map file")] public string fileName = "FOVMap1024";
-	[Tooltip("(Essential) Projector for FOV mapping")] public Projector projector;
+	[Tooltip("(Essential) Plane for FOV mapping")] public Transform plane;
 	[Tooltip("(Essential) Layer of the level to be sampled")] public LayerMask levelLayer;
-	[Tooltip("Width of the generated FOV map")] public int FOWMapWidth = 1024;
+	[Tooltip("Width of the generated FOV map")] public int FOVMapWidth = 1024;
 	[Tooltip("Height of the generated FOV map")] public int FOVMapHeight = 1024;
 	[Tooltip("Number of layers in the generated FOV map")] public int layerCount = 90;
 	[Tooltip("Height of the 'sampling eye'")] public float centerHeight = 1.8f;
@@ -28,23 +28,28 @@ public class FOVMapGenerator : MonoBehaviour
 {
 	private const int CHANNELS_PER_TEXEL = 4;
 
-	public static bool CreateFOVMapArray(FOVMapGenerationInfo generationInfo, Func<int, int, bool> progressAction)
+	public static bool CreateFOVMap(FOVMapGenerationInfo generationInfo, Func<int, int, bool> progressAction)
 	{
-		string pathToSave = $"Assets/{generationInfo.path}/{generationInfo.fileName}.asset";
-		if (AssetDatabase.FindAssets(pathToSave).Length != 0)
-		{
-			print($"There is already an asset '{pathToSave}'");
-			return false;
-		}
+		string FOVMapPath = $"Assets/{generationInfo.path}/{generationInfo.fileName}.asset";
+		string heightMapPath = $"Assets/{generationInfo.path}/{generationInfo.fileName + "_height"}.asset";
 
-		Texture2DArray FOVMapArray = GenerateFOVMapArray(generationInfo, progressAction);
+		Tuple<Texture2DArray, Texture2D> generationResult = GenerateFOVMap(generationInfo, progressAction);
+
+		if (generationResult == null) return false;
+
+		Texture2DArray FOVMapArray = generationResult.Item1;
 		if (FOVMapArray == null) return false;
 
-		// Save
+		Texture2D heightMap = generationResult.Item2;
+		if (heightMap == null) return false;
+
+		// Save the maps
 		FOVMapArray.mipMapBias = generationInfo.samplingRange; // Store sampling range in mipMapBias field to use in FOVManager
 		try
 		{
-			AssetDatabase.CreateAsset(FOVMapArray, pathToSave);
+			AssetDatabase.CreateAsset(FOVMapArray, FOVMapPath);
+			AssetDatabase.CreateAsset(heightMap, heightMapPath);
+
 			AssetDatabase.Refresh();
 		}
 		catch (Exception e)
@@ -56,14 +61,15 @@ public class FOVMapGenerator : MonoBehaviour
 		return true;
 	}
 
-	private static Texture2DArray GenerateFOVMapArray(FOVMapGenerationInfo generationInfo, Func<int, int, bool> progressAction)
+	// Generate {FOV map array, height map}
+	private static Tuple<Texture2DArray, Texture2D> GenerateFOVMap(FOVMapGenerationInfo generationInfo, Func<int, int, bool> progressAction)
 	{
 		// Basic checks
 		bool checkPassed = true;
 
-		if (generationInfo.projector == null)
+		if (generationInfo.plane == null)
 		{
-			Debug.LogError("No FOW projector has been assigned.");
+			Debug.LogError("No FOW plane has been assigned.");
 			checkPassed = false;
 		}
 
@@ -73,7 +79,7 @@ public class FOVMapGenerator : MonoBehaviour
 			checkPassed = false;
 		}
 
-		if (generationInfo.FOWMapWidth == 0 || generationInfo.FOVMapHeight == 0)
+		if (generationInfo.FOVMapWidth == 0 || generationInfo.FOVMapHeight == 0)
 		{
 			Debug.LogError("Incorrect texture size.");
 			checkPassed = false;
@@ -103,11 +109,11 @@ public class FOVMapGenerator : MonoBehaviour
 		const float MAX_HEIGHT = 5000.0f;
 		const float RAY_DISTANCE = 1000.0f;
 
-		float projectorSizeX = generationInfo.projector.orthographicSize * generationInfo.projector.aspectRatio * 2.0f;
-		float projectorSizeZ = generationInfo.projector.orthographicSize * 2.0f;
+		float planeSizeX = generationInfo.plane.localScale.x;
+		float planeSizeZ = generationInfo.plane.localScale.z;
 
-		float squareSizeX = projectorSizeX / generationInfo.FOWMapWidth;
-		float squareSizeZ = projectorSizeZ / generationInfo.FOVMapHeight;
+		float squareSizeX = planeSizeX / generationInfo.FOVMapWidth;
+		float squareSizeZ = planeSizeZ / generationInfo.FOVMapHeight;
 
 		int directionsPerSquare = CHANNELS_PER_TEXEL * generationInfo.layerCount;
 
@@ -127,24 +133,40 @@ public class FOVMapGenerator : MonoBehaviour
 		};
 
 		// Create an array of FOV maps
-		Color[][] FOVMapTexels = Enumerable.Range(0, generationInfo.layerCount).Select(_ => new Color[generationInfo.FOWMapWidth * generationInfo.FOVMapHeight]).ToArray();
+		Color[][] FOVMapTexels = Enumerable.Range(0, generationInfo.layerCount).Select(_ => new Color[generationInfo.FOVMapWidth * generationInfo.FOVMapHeight]).ToArray();
+
+		// Create a height map.
+		float[,] heights = new float[generationInfo.FOVMapHeight, generationInfo.FOVMapWidth];
+		float maxHeight = float.NegativeInfinity;
 
 		for (int squareZ = 0; squareZ < generationInfo.FOVMapHeight; ++squareZ)
 		{
-			for (int squareX = 0; squareX < generationInfo.FOWMapWidth; ++squareX)
+			for (int squareX = 0; squareX < generationInfo.FOVMapWidth; ++squareX)
 			{
-				Vector3 aboveCenterPosition =
-					generationInfo.projector.transform.position -
-					new Vector3(projectorSizeX / 2.0f, 0.0f, projectorSizeZ / 2.0f) +
-					(squareZ + 0.5f) * generationInfo.projector.transform.up * squareSizeZ +
-					(squareX + 0.5f) * generationInfo.projector.transform.right * squareSizeX;
-				aboveCenterPosition.y = MAX_HEIGHT;
+				// Position above the sampling point
+				// Add 0.5f to align to the center of each square.
+				Vector3 rayOriginPosition =
+					generationInfo.plane.position +
+					((squareZ + 0.5f) / generationInfo.FOVMapHeight) * planeSizeZ * generationInfo.plane.forward +
+					((squareX + 0.5f) / generationInfo.FOVMapWidth) * planeSizeX * generationInfo.plane.right;
+				rayOriginPosition.y = MAX_HEIGHT;
 
 				RaycastHit hitLevel;
-				if (Physics.Raycast(aboveCenterPosition, Vector3.down, out hitLevel, 2 * MAX_HEIGHT, generationInfo.levelLayer))
+				if (Physics.Raycast(rayOriginPosition, Vector3.down, out hitLevel, 2 * MAX_HEIGHT, generationInfo.levelLayer)) // Level found
 				{
+					Vector3 centerPosition = hitLevel.point + generationInfo.centerHeight * Vector3.up; // Apply the center height(possibly the height of the unit)
+					float height = hitLevel.point.y - generationInfo.plane.position.y;
+					if (height < 0.0f)
+					{
+						Debug.Log("The FOW plane should be located completely below the level.");
+						return null;
+					}
+					heights[squareZ, squareX] = height; // Store the height information
+
+					// Update the max height so that they can be used later for generating the height map
+					if (height > maxHeight) maxHeight = height;
+
 					// For all possible directions at this square
-					Vector3 centerPosition = hitLevel.point + generationInfo.centerHeight * Vector3.up;
 					for (int directionIdx = 0; directionIdx < directionsPerSquare; ++directionIdx)
 					{
 						// Sample a distance to an obstacle
@@ -225,14 +247,15 @@ public class FOVMapGenerator : MonoBehaviour
 						int channelIdx = directionIdx % CHANNELS_PER_TEXEL;
 
 						// Store
-						FOVMapTexels[layerIdx][squareZ * generationInfo.FOWMapWidth + squareX][channelIdx] = distanceRatio;
+						FOVMapTexels[layerIdx][squareZ * generationInfo.FOVMapWidth + squareX][channelIdx] = distanceRatio;
 					}
 				}
-				else // No level found - just fill with white
+				else // No level found
 				{
+					// Fill all the layers with white
 					for (int layerIdx = 0; layerIdx < generationInfo.layerCount; ++layerIdx)
 					{
-						FOVMapTexels[layerIdx][squareZ * generationInfo.FOWMapWidth + squareX] = Color.white;
+						FOVMapTexels[layerIdx][squareZ * generationInfo.FOVMapWidth + squareX] = Color.white;
 					}
 				}
 			}
@@ -240,8 +263,8 @@ public class FOVMapGenerator : MonoBehaviour
 			if (progressAction.Invoke(squareZ, generationInfo.FOVMapHeight)) return null;
 		}
 
-		// Save as a texture array
-		Texture2DArray textureArray = new Texture2DArray(generationInfo.FOWMapWidth, generationInfo.FOVMapHeight, generationInfo.layerCount, TextureFormat.RGBA32, false, false);
+		// Store the FOV info in a texture array
+		Texture2DArray textureArray = new Texture2DArray(generationInfo.FOVMapWidth, generationInfo.FOVMapHeight, generationInfo.layerCount, TextureFormat.RGBA32, false, false);
 		textureArray.filterMode = FilterMode.Bilinear;
 		textureArray.wrapMode = TextureWrapMode.Clamp;
 
@@ -250,6 +273,21 @@ public class FOVMapGenerator : MonoBehaviour
 			textureArray.SetPixels(FOVMapTexels[layerIdx], layerIdx, 0);
 		}
 
-		return textureArray;
+		// Generate a height map
+		Color[] heightMapTexels = new Color[generationInfo.FOVMapWidth * generationInfo.FOVMapHeight];
+		for (int centerZ = 0; centerZ < generationInfo.FOVMapHeight; ++centerZ)
+		{
+			for (int centerX = 0; centerX < generationInfo.FOVMapWidth; ++centerX)
+			{
+				float height = heights[centerZ, centerX];
+				height = height / maxHeight; // Remap [minHeight, maxHeight] to [0, 1]
+				heightMapTexels[centerZ * generationInfo.FOVMapWidth + centerX] = Color.white * height;
+			}
+		}
+
+		Texture2D heightMap = new Texture2D(generationInfo.FOVMapWidth, generationInfo.FOVMapHeight, TextureFormat.RGBAFloat, false);
+		heightMap.SetPixels(heightMapTexels);
+
+		return new Tuple<Texture2DArray, Texture2D>(textureArray, heightMap);
 	}
 }

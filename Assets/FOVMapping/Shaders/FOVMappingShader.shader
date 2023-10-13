@@ -23,12 +23,12 @@
 			uniform float4 _FOWColor;
 			UNITY_DECLARE_TEX2DARRAY(_FOVMap);
 
-			uniform float4 _ProjectorPosition;
-			uniform float4 _ProjectorLeft;
-			uniform float4 _ProjectorBackward;
+			uniform float4 _PlanePosition;
+			uniform float4 _PlaneRight;
+			uniform float4 _PlaneForward;
 
-			uniform float _ProjectorSizeX;
-			uniform float _ProjectorSizeY;
+			uniform float _PlaneSizeX;
+			uniform float _PlaneSizeZ;
 
 			uniform int _AgentCount;
 
@@ -60,7 +60,7 @@
 
 				o.uv = uv; // [0, 1]
 				o.pos = UnityObjectToClipPos(pos); // Clip-space position
-				o.worldPos = _ProjectorPosition + ((uv.x - 0.5f) * _ProjectorSizeX * _ProjectorLeft) + ((uv.y - 0.5f) * _ProjectorSizeY * _ProjectorBackward); // World-space square vertex position - subtract 0.5f to align to the projector center
+				o.worldPos = _PlanePosition + (uv.x * _PlaneSizeX * _PlaneRight) + (uv.y * _PlaneSizeZ * _PlaneForward); // World-space square vertex position - subtract 0.5f to align to the plane center
 
 				return o;
 			}
@@ -75,7 +75,7 @@
 
 				float4 color = _FOWColor;
 				float alphaFactor = 1.0f;
-
+	
 				for (int i = 0; i < _AgentCount; ++i)
 				{
 					float3 agentPosition = _Positions[i].xyz;
@@ -104,8 +104,8 @@
 					int channelIdx0 = directionIdx0 % CHANNELS_PER_TEXEL;
 					int channelIdx1 = directionIdx1 % CHANNELS_PER_TEXEL;
 
-					float distanceRatio0 = UNITY_SAMPLE_TEX2DARRAY(_FOVMap, float3(agentPosition.x / _ProjectorSizeX, agentPosition.z / _ProjectorSizeY, layerIdx0))[channelIdx0];
-					float distanceRatio1 = UNITY_SAMPLE_TEX2DARRAY(_FOVMap, float3(agentPosition.x / _ProjectorSizeX, agentPosition.z / _ProjectorSizeY, layerIdx1))[channelIdx1];
+					float distanceRatio0 = UNITY_SAMPLE_TEX2DARRAY(_FOVMap, float3(agentPosition.x / _PlaneSizeX, agentPosition.z / _PlaneSizeZ, layerIdx0))[channelIdx0];
+					float distanceRatio1 = UNITY_SAMPLE_TEX2DARRAY(_FOVMap, float3(agentPosition.x / _PlaneSizeX, agentPosition.z / _PlaneSizeZ, layerIdx1))[channelIdx1];
 
 					float interpolationFactor = directionFactor - directionIdx0;
 					float distanceRatio = distanceRatio0 * (1.0f - interpolationFactor) + distanceRatio1 * interpolationFactor; // Interpolate distances sampled from the FOV maps

@@ -4,18 +4,18 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 public class FOVManager : MonoBehaviour
 {
 	// Basic fields
-	private Projector FOWProjector;
 	private IEnumerator FOVCoroutine;
 
 	// Fog of war fields
 	private RenderTexture FOWRenderTexture;
 
 	[SerializeField]
-	[Tooltip("Size of the fog of war RenderTexture that will be projected with the Projector")]
+	[Tooltip("Size of the fog of war RenderTexture that will be projected with the Plane")]
 	private int FOWTextureSize = 2048;
 
 	[SerializeField]
@@ -57,13 +57,27 @@ public class FOVManager : MonoBehaviour
 	private int blurIterationCount = 1;
 	private Material blurMaterial;
 
+	[Range(0.0f, 1.0f)]
+	[SerializeField]
+	[Tooltip("Height scale to adjust the sampling position of the fog of war")]
+	private float heightScale = 1.0f;
+
+	[Range(0, 100)]
+	[SerializeField]
+	[Tooltip("Number of layers to adjust the sampling position of the fog of war")]
+	private int numLayers = 10;
+
 	// Shaders and materials
 	[SerializeField]
-	[Tooltip("(Essential) FOV map Texture2DArray to use for FOV mapping")]
+	[Tooltip("(Essential) FOV map Texture2DArray for runtime FOV mapping")]
 	private Texture2DArray FOVMapArray;
 
 	[SerializeField]
-	[Tooltip("(Do not modify) FOV map core shader")]
+	[Tooltip("(Essential) Height map for showing the fog of war properly")]
+	private Texture2D levelHeightMap;
+
+	[SerializeField]
+	[Tooltip("(Do not modify) FOV mapping shader")]
 	private Shader FOVShader;
 
 	[SerializeField]
@@ -83,12 +97,10 @@ public class FOVManager : MonoBehaviour
 
 	private void Awake()
 	{
-		FOWProjector = GetComponent<Projector>();
-
 		FOVMaterial = new Material(FOVShader);
 
 		FOWMaterial = new Material(FOWShader);
-		FOWProjector.material = FOWMaterial;
+		GetComponent<MeshRenderer>().material = FOWMaterial;
 
 		blurMaterial = new Material(GaussianShader);
 	}
@@ -97,7 +109,7 @@ public class FOVManager : MonoBehaviour
 	{
 		FindAllFOVAgents();
 		
-		if (FOVMapArray && FOVMaterial)
+		if (FOVMapArray)
 		{
 			FOVMaterial.SetFloat("_SamplingRange", FOVMapArray.mipMapBias);
 			FOVMaterial.SetTexture("_FOVMap", FOVMapArray);
@@ -106,12 +118,22 @@ public class FOVManager : MonoBehaviour
 		}
 		else
 		{
-			print("FOV map or material not set");
+			print("FOV map has not been set");
+			return;
+		}
+
+		if (levelHeightMap)
+		{
+			FOWMaterial.SetTexture("_LevelHeightMap", levelHeightMap);
+		}
+		else
+		{
+			print("Level height map has not been set");
 			return;
 		}
 
 		FOWRenderTexture = new RenderTexture(FOWTextureSize, FOWTextureSize, 1, RenderTextureFormat.ARGB32);
-		FOWMaterial.SetTexture("_FOWTexture", FOWRenderTexture); // It will be projected using a Projector.
+		FOWMaterial.SetTexture("_FOWTexture", FOWRenderTexture); // It will be projected using a Plane.
 
 		outputAlphaBuffer = new ComputeBuffer(1, sizeof(float) * MAX_ENEMY_AGENT_COUNT);
 		kernelID = pixelReader.FindKernel("ReadPixels");
@@ -123,7 +145,7 @@ public class FOVManager : MonoBehaviour
 
 	private void OnDestroy()
 	{
-		outputAlphaBuffer.Release();
+		if (outputAlphaBuffer != null) outputAlphaBuffer.Release();
 	}
 
 	public void EnableFOV()
@@ -175,13 +197,13 @@ public class FOVManager : MonoBehaviour
 				}
 			}
 
-			// Set uniform values
-			FOVMaterial.SetVector("_ProjectorPosition", transform.position);
-			FOVMaterial.SetVector("_ProjectorLeft", transform.right);
-			FOVMaterial.SetVector("_ProjectorBackward", transform.up);
+			// Set uniform values for FOVMaterial
+			FOVMaterial.SetVector("_PlanePosition", transform.position);
+			FOVMaterial.SetVector("_PlaneRight", transform.right);
+			FOVMaterial.SetVector("_PlaneForward", transform.forward);
 
-			FOVMaterial.SetFloat("_ProjectorSizeX", FOWProjector.orthographicSize * FOWProjector.aspectRatio * 2.0f);
-			FOVMaterial.SetFloat("_ProjectorSizeY", FOWProjector.orthographicSize * 2.0f);
+			FOVMaterial.SetFloat("_PlaneSizeX", transform.localScale.x);
+			FOVMaterial.SetFloat("_PlaneSizeZ", transform.localScale.z);
 
 			FOVMaterial.SetColor("_FOWColor", FOWColor);
 
@@ -193,6 +215,10 @@ public class FOVManager : MonoBehaviour
 			FOVMaterial.SetFloatArray("_AngleCosines", angleCosines);
 
 			FOVMaterial.SetFloat("_BlockOffset", blockOffset);
+
+			// Set uniform values for FOWMaterial
+			FOWMaterial.SetFloat("_HeightScale", heightScale);
+			FOWMaterial.SetInt("_NumLayers", numLayers);
 		}
 
 		// Apply FOVMapping and Gaussian blur passes to a RenderTexture
@@ -237,7 +263,7 @@ public class FOVManager : MonoBehaviour
 		{
 			List<FOVAgent> targetAgents = new List<FOVAgent>();
 			List<Vector4> targetAgentUVs = new List<Vector4>();
-			
+
 			for (int i = 0; i < FOVAgents.Count; i++)
 			{
 				FOVAgent agent = FOVAgents[i];
@@ -252,12 +278,10 @@ public class FOVManager : MonoBehaviour
 						continue;
 					}
 
-					// Convert the agent position to a Projector UV coordinate
-					Vector2 agentLocalPosition = FOWProjector.transform.InverseTransformPoint(agentPosition);
-					agentLocalPosition.x /= FOWProjector.orthographicSize * FOWProjector.aspectRatio; // Remap to [-1, 1]
-					agentLocalPosition.y /= FOWProjector.orthographicSize; // Remap to [-1, 1]
-					agentLocalPosition = agentLocalPosition / 2.0f + 0.5f * Vector2.one; // [-1, 1] -> [0, 1]
-					Vector2 agentUV = FOWTextureSize * agentLocalPosition;
+					// Convert the agent position to a Plane UV coordinate [0, FOWTextureSize]
+					Vector3 agentLocalPosition = transform.InverseTransformPoint(agentPosition);
+					Vector2 agentUV = new Vector2(agentLocalPosition.x, agentLocalPosition.z);
+					agentUV *= FOWTextureSize;
 
 					targetAgents.Add(agent);
 					targetAgentUVs.Add(agentUV);

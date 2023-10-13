@@ -27,7 +27,7 @@ public class FOVMappingEditorWindow : EditorWindow
 			{
 				double startTime = Time.realtimeSinceStartup;
 
-				bool isSuccessful = FOVMapGenerator.CreateFOVMapArray
+				bool isSuccessful = FOVMapGenerator.CreateFOVMap
 				(
 					generationInfo,
 					(y, height) =>
