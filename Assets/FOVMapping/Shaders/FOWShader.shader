@@ -49,40 +49,42 @@
 			}
 
 			// Parallax occlusion mapping
-			float2 GetParallaxCoord(float3 viewDir, float2 uv)
+			float2 GetparallaxCoords(float3 viewDir, float2 uv)
 			{
-				float layerHeight = 1.0f / _NumLayers;
-				float currentLayerHeight = 0.0f;
-				float2 deltaTexCoord = (viewDir.xy * _HeightScale) / (viewDir.z * _NumLayers);
+				float layerInterval = 1.0f / _NumLayers;
+				float currentLayerHeight = 1.0f; // Start from above
+				float2 deltaTexCoords = (viewDir.xy * _HeightScale) / (viewDir.z * _NumLayers); // Shift of texture coordinates per layer (toward the view vector)
 	
-				float2 currentTexCoord = uv;
-				float currentMapHeight = tex2D(_LevelHeightMap, currentTexCoord).r;
+				float2 currentTexCoords = uv + deltaTexCoords * _NumLayers; // Same: start from above
+				float currentMapHeight = tex2D(_LevelHeightMap, currentTexCoords).r;
 				
-				while (currentLayerHeight < currentMapHeight)
+				// Go down the layer until we meet a surface
+				while (currentLayerHeight > currentMapHeight)
 				{
-					currentTexCoord += deltaTexCoord;
-					currentMapHeight = tex2Dlod(_LevelHeightMap, float4(currentTexCoord, 0, 0)).r;
+					currentTexCoords -= deltaTexCoords;
+					currentMapHeight = tex2Dlod(_LevelHeightMap, float4(currentTexCoords, 0, 0)).r;
         
-					currentLayerHeight += layerHeight;
+					currentLayerHeight -= layerInterval;
 				}
-	
-				float2 prevTexCoord = currentTexCoord - deltaTexCoord;
 				
-				float beforeLength = tex2D(_LevelHeightMap, prevTexCoord).r - (currentLayerHeight - layerHeight);
-				float afterLength = currentLayerHeight - currentMapHeight;
-	
+				// Interpolation for finding the final sampling coordinates
+				float2 prevTexCoords = currentTexCoords + deltaTexCoords;
+				
+				float beforeLength = (currentLayerHeight + layerInterval) - tex2D(_LevelHeightMap, prevTexCoords).r;
+				float afterLength = currentMapHeight - currentLayerHeight;
+				
 				float weight = beforeLength / (beforeLength + afterLength);
-				float2 finalTexCoord = prevTexCoord + weight * (currentTexCoord - prevTexCoord);
+				float2 finalTexCoords = prevTexCoords - weight * deltaTexCoords;
 				
-				return finalTexCoord;
+				return finalTexCoords;
 			}
 
 			float4 frag(v2f i) : SV_Target
 			{
 				float3 viewDir = normalize(i.viewDir);
-				float2 parallaxCoord = GetParallaxCoord(viewDir, i.uv);
+				float2 parallaxCoords = GetparallaxCoords(viewDir, i.uv);
 
-				return tex2D(_FOWTexture, parallaxCoord);
+				return tex2D(_FOWTexture, parallaxCoords);
 			}
 
 			ENDCG

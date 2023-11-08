@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44657874, g: 0.49641275, b: 0.5748172, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657874, g: 0.49641258, b: 0.5748172, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -494,7 +494,7 @@ PrefabInstance:
         type: 3}
       propertyPath: FOVMapArray
       value: 
-      objectReference: {fileID: 18700000, guid: b0696f6c3300f534a997db7b9e10caa5,
+      objectReference: {fileID: 18700000, guid: 7919315073253d441bd93318e8f7b416,
         type: 2}
     - target: {fileID: 34031861805293224, guid: 3e59967b7c49c2e47af40ff3dcb8c394,
         type: 3}
@@ -505,7 +505,7 @@ PrefabInstance:
         type: 3}
       propertyPath: levelHeightMap
       value: 
-      objectReference: {fileID: 2800000, guid: 2d22fe007c89d6641a6d83abc6a30ff9, type: 2}
+      objectReference: {fileID: 2800000, guid: 12b0027c242a5814ab8a38bf939461b0, type: 2}
     - target: {fileID: 572624217859586369, guid: 3e59967b7c49c2e47af40ff3dcb8c394,
         type: 3}
       propertyPath: m_RootOrder

@@ -34,7 +34,7 @@ public class FOVAgent : MonoBehaviour
 	private float _disappearAlphaThreshold = 0.1f;
 	public float disappearAlphaThreshold { get => _disappearAlphaThreshold; set => _disappearAlphaThreshold = value; }
 	private bool isUnderFOW = false;
-	private MeshRenderer meshRenderer; 
+	private MeshRenderer meshRenderer;
 
 	private void Awake()
 	{
