@@ -24,6 +24,7 @@
 			uniform sampler2D _LevelHeightMap;
 			uniform float _HeightScale;
 			uniform int _NumLayers;
+			uniform int _NumBinaryIterations;
 			uniform float _X;
 			uniform float _Y;
 
@@ -51,9 +52,9 @@
 			// Parallax occlusion mapping
 			float2 GetparallaxCoords(float3 viewDir, float2 uv)
 			{
-				float layerInterval = 1.0f / _NumLayers;
-				float currentLayerHeight = 1.0f; // Start from above
-				float2 deltaTexCoords = (viewDir.xy * _HeightScale) / (viewDir.z * _NumLayers); // Shift of texture coordinates per layer (toward the view vector)
+				float layerInterval = 0.5f / _NumLayers;
+				float currentLayerHeight = 0.5f; // Start from above
+				float2 deltaTexCoords = (0.5f * viewDir.xy * _HeightScale) / (viewDir.z * _NumLayers); // Shift of texture coordinates per layer (toward the view vector)
 	
 				float2 currentTexCoords = uv + deltaTexCoords * _NumLayers; // Same: start from above
 				float currentMapHeight = tex2D(_LevelHeightMap, currentTexCoords).r;
@@ -63,20 +64,27 @@
 				{
 					currentTexCoords -= deltaTexCoords;
 					currentMapHeight = tex2Dlod(_LevelHeightMap, float4(currentTexCoords, 0, 0)).r;
-        
 					currentLayerHeight -= layerInterval;
 				}
-				
-				// Interpolation for finding the final sampling coordinates
-				float2 prevTexCoords = currentTexCoords + deltaTexCoords;
-				
-				float beforeLength = (currentLayerHeight + layerInterval) - tex2D(_LevelHeightMap, prevTexCoords).r;
-				float afterLength = currentMapHeight - currentLayerHeight;
-				
-				float weight = beforeLength / (beforeLength + afterLength);
-				float2 finalTexCoords = prevTexCoords - weight * deltaTexCoords;
-				
-				return finalTexCoords;
+	
+				// Binary search
+				bool isCurrInside = true;
+				bool isPrevInside = false;
+				for (int i = 0; i < _NumBinaryIterations; ++i)
+				{
+					float deltaFactor = isCurrInside == isPrevInside ? 0.5f : -0.5f;
+					deltaTexCoords *= deltaFactor;
+					layerInterval *= deltaFactor;
+					
+					currentTexCoords -= deltaTexCoords;
+					currentMapHeight = tex2Dlod(_LevelHeightMap, float4(currentTexCoords, 0, 0)).r;
+					currentLayerHeight -= layerInterval;
+					
+					isPrevInside = isCurrInside;
+					isCurrInside = currentLayerHeight <= currentMapHeight;
+				}
+	
+				return currentTexCoords;
 			}
 
 			float4 frag(v2f i) : SV_Target

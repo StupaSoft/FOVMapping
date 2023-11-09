@@ -62,10 +62,15 @@ public class FOVManager : MonoBehaviour
 	[Tooltip("Height scale to adjust the sampling position of the fog of war")]
 	private float heightScale = 1.0f;
 
-	[Range(0, 100)]
+	[Range(0, 200)]
 	[SerializeField]
 	[Tooltip("Number of layers to adjust the sampling position of the fog of war")]
-	private int numLayers = 10;
+	private int numLayers = 20;
+
+	[Range(0, 20)]
+	[SerializeField]
+	[Tooltip("Number of binary search iterations to adjust the sampling position of the fog of war")]
+	private int numBinaryIterations = 10;
 
 	// Shaders and materials
 	[SerializeField]
@@ -162,16 +167,20 @@ public class FOVManager : MonoBehaviour
 	// Runtime updater
 	private IEnumerator UpdateFOV()
 	{
+		float elapsedTimeFromLastUpdate = 0.0f;
 		while (true)
 		{
-			yield return new WaitForSeconds(updateInterval);
-			
-			SetShaderValues();
-			SetAgentVisibility(); // Call before ApplyFOWPass, as calling it after the pass will stall the main thread for a while.
+			if (elapsedTimeFromLastUpdate >= updateInterval)
+			{
+				SetShaderValues();
+				SetAgentVisibility(); // Call before ApplyFOWPass, as calling it after the pass will stall the main thread for a while.
+				ApplyFOWPass(); // Call after the rendering has finished to prevent flickers.
+
+				elapsedTimeFromLastUpdate = 0.0f;
+			}
 
 			yield return new WaitForEndOfFrame();
-
-			ApplyFOWPass(); // Call after the rendering has finished to prevent flickers.
+			elapsedTimeFromLastUpdate += Time.unscaledDeltaTime;
 		}
 
 		// Aggregate the status of agents and transfer to the GPU 
@@ -219,6 +228,7 @@ public class FOVManager : MonoBehaviour
 			// Set uniform values for FOWMaterial
 			FOWMaterial.SetFloat("_HeightScale", heightScale);
 			FOWMaterial.SetInt("_NumLayers", numLayers);
+			FOWMaterial.SetInt("_NumBinaryIterations", numBinaryIterations);
 		}
 
 		// Apply FOVMapping and Gaussian blur passes to a RenderTexture
