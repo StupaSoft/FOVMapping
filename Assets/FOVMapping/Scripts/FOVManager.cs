@@ -57,29 +57,10 @@ public class FOVManager : MonoBehaviour
 	private int blurIterationCount = 1;
 	private Material blurMaterial;
 
-	[Range(0.0f, 1.0f)]
-	[SerializeField]
-	[Tooltip("Height scale to adjust the sampling position of the fog of war")]
-	private float heightScale = 1.0f;
-
-	[Range(0, 200)]
-	[SerializeField]
-	[Tooltip("Number of layers to adjust the sampling position of the fog of war")]
-	private int numLayers = 20;
-
-	[Range(0, 20)]
-	[SerializeField]
-	[Tooltip("Number of binary search iterations to adjust the sampling position of the fog of war")]
-	private int numBinaryIterations = 10;
-
 	// Shaders and materials
 	[SerializeField]
 	[Tooltip("(Essential) FOV map Texture2DArray for runtime FOV mapping")]
 	private Texture2DArray FOVMapArray;
-
-	[SerializeField]
-	[Tooltip("(Essential) Height map for showing the fog of war properly")]
-	private Texture2D levelHeightMap;
 
 	[SerializeField]
 	[Tooltip("(Do not modify) FOV mapping shader")]
@@ -87,7 +68,7 @@ public class FOVManager : MonoBehaviour
 
 	[SerializeField]
 	[Tooltip("(Do not modify) Fog of war projection shader")]
-	private Shader FOWShader;
+	private Shader FOWProjectorShader;
 
 	[SerializeField]
 	[Tooltip("(Do not modify) Gaussian filter shader")]
@@ -104,7 +85,7 @@ public class FOVManager : MonoBehaviour
 	{
 		FOVMaterial = new Material(FOVShader);
 
-		FOWMaterial = new Material(FOWShader);
+		FOWMaterial = new Material(FOWProjectorShader);
 		GetComponent<MeshRenderer>().material = FOWMaterial;
 
 		blurMaterial = new Material(GaussianShader);
@@ -127,18 +108,8 @@ public class FOVManager : MonoBehaviour
 			return;
 		}
 
-		if (levelHeightMap)
-		{
-			FOWMaterial.SetTexture("_LevelHeightMap", levelHeightMap);
-		}
-		else
-		{
-			print("Level height map has not been set");
-			return;
-		}
-
 		FOWRenderTexture = new RenderTexture(FOWTextureSize, FOWTextureSize, 1, RenderTextureFormat.ARGB32);
-		FOWMaterial.SetTexture("_FOWTexture", FOWRenderTexture); // It will be projected using a Plane.
+		FOWMaterial.SetTexture("_MainTex", FOWRenderTexture); // It will be projected using a Plane.
 
 		outputAlphaBuffer = new ComputeBuffer(1, sizeof(float) * MAX_ENEMY_AGENT_COUNT);
 		kernelID = pixelReader.FindKernel("ReadPixels");
@@ -146,6 +117,17 @@ public class FOVManager : MonoBehaviour
 		pixelReader.SetBuffer(kernelID, "outputBuffer", outputAlphaBuffer);
 
 		EnableFOV();
+	}
+
+	private void OnEnable()
+	{
+		Camera.main.depthTextureMode = DepthTextureMode.Depth;
+	}
+
+	private void OnDisable() 
+	{
+		if (Camera.main != null) Camera.main.depthTextureMode = DepthTextureMode.None;
+
 	}
 
 	private void OnDestroy()
@@ -226,9 +208,10 @@ public class FOVManager : MonoBehaviour
 			FOVMaterial.SetFloat("_BlockOffset", blockOffset);
 
 			// Set uniform values for FOWMaterial
-			FOWMaterial.SetFloat("_HeightScale", heightScale);
-			FOWMaterial.SetInt("_NumLayers", numLayers);
-			FOWMaterial.SetInt("_NumBinaryIterations", numBinaryIterations);
+			FOWMaterial.SetVector("_PlanePos", transform.position);
+			FOWMaterial.SetVector("_PlaneRight", transform.right);
+			FOWMaterial.SetVector("_PlaneForward", transform.forward);
+			FOWMaterial.SetVector("_PlaneScale", transform.localScale);
 		}
 
 		// Apply FOVMapping and Gaussian blur passes to a RenderTexture

@@ -98,11 +98,8 @@ MonoBehaviour:
   blockOffset: 1
   sigma: 30
   blurIterationCount: 1
-  heightScale: 0.02
-  numLayers: 20
   FOVMapArray: {fileID: 18700000, guid: 2df9ee68a9bbf794aa3f8647867eb02b, type: 2}
-  levelHeightMap: {fileID: 0}
   FOVShader: {fileID: 4800000, guid: 64b2dd5a6890e0542aaf8f20be5c10d6, type: 3}
-  FOWShader: {fileID: 4800000, guid: 83af9ca698329f4498fb77b0a480c8de, type: 3}
+  FOWProjectorShader: {fileID: 4800000, guid: 83af9ca698329f4498fb77b0a480c8de, type: 3}
   GaussianShader: {fileID: 4800000, guid: 4b982b63283618741b6074fb7d8e4d37, type: 3}
   pixelReader: {fileID: 7200000, guid: 7d6282cc36e40724b8bac6618b5f663d, type: 3}
