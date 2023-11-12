@@ -67,7 +67,7 @@ public class FOVManager : MonoBehaviour
 	private Shader FOVShader;
 
 	[SerializeField]
-	[Tooltip("(Do not modify) Fog of war projection shader")]
+	[Tooltip("(Do not modify) Fog of war projector shader")]
 	private Shader FOWProjectorShader;
 
 	[SerializeField]
@@ -149,6 +149,8 @@ public class FOVManager : MonoBehaviour
 	// Runtime updater
 	private IEnumerator UpdateFOV()
 	{
+		yield return new WaitForEndOfFrame();
+
 		float elapsedTimeFromLastUpdate = 0.0f;
 		while (true)
 		{

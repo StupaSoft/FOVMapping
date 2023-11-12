@@ -44,22 +44,30 @@
 
 				o.pos = UnityObjectToClipPos(v.vertex);
 				o.uv = v.texcoord;
-				o.camRelativeWorldPos = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz - _WorldSpaceCameraPos;
+				o.camRelativeWorldPos = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz - _WorldSpaceCameraPos; // Position relative to the camera, but without considering the depth.
 				o.screenPos = ComputeScreenPos(o.pos);
 
 				return o;
 			}
-
+			
+			// Find the world position, this time with the depth considered.
 			float3 GetWorldPosFromDepth(v2f i)
 			{
-				float2 screenUV = i.screenPos.xy / i.screenPos.w;
-                float depth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, screenUV));
-                float3 viewPlane = i.camRelativeWorldPos.xyz / dot(i.camRelativeWorldPos.xyz, unity_WorldToCamera._m20_m21_m22);
-                float3 worldPos = viewPlane * depth + _WorldSpaceCameraPos;
+				// Get the depth value from the camera (note that this is not the distance traveled by the ray)
+				float depth = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2Dproj(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos))));
+	
+				// The intersection point between the ray (camera, worldPos) and the camera's view plane,
+				// but the coordinates are relative to the camera.
+                float3 rayViewPlaneIntersection = i.camRelativeWorldPos.xyz / dot(i.camRelativeWorldPos.xyz, unity_WorldToCamera._m20_m21_m22);
+	
+				// Find the world coordinates of the point using the following proportional expression.
+				// cameraNormalLength : depth = rayViewPlaneIntersection : (worldPos - _WorldSpaceCameraPos)
+				float3 worldPos = _WorldSpaceCameraPos + rayViewPlaneIntersection * depth;
 
 				return worldPos;
 			}
-
+			
+			// Given a world position, convert it to UV coordinates projected upon the plane 
 			float2 WorldPosToPlaneUV(float3 targetPos, float3 planePos, float3 planeRight, float3 planeForward, float3 planeScale)
 			{
 				float3 relativePos = targetPos - planePos;
