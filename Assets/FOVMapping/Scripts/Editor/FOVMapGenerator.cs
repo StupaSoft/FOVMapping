@@ -1,10 +1,11 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using FOVMapping;
 
+namespace FOVMapping
+{
 [Serializable]
 public class FOVMapGenerationInfo
 {
@@ -256,4 +257,5 @@ public class FOVMapGenerator : MonoBehaviour
 
 		return textureArray;
 	}
+}
 }

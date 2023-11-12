@@ -1,7 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+using FOVMapping;
 
+namespace FOVMapping
+{
 // Attach this component to 'eyes' of the field of view.
 // Works only when this component is enabled.
 public class FOVAgent : MonoBehaviour
@@ -56,4 +57,5 @@ public class FOVAgent : MonoBehaviour
 	{
 		return isUnderFOW;
 	}
+}
 }

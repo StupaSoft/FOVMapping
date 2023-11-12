@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
+using FOVMapping;
 
+namespace FOVMapping
+{
 public class FOVManager : MonoBehaviour
 {
 	// Basic fields
@@ -111,7 +111,7 @@ public class FOVManager : MonoBehaviour
 		FOWRenderTexture = new RenderTexture(FOWTextureSize, FOWTextureSize, 1, RenderTextureFormat.ARGB32);
 		FOWMaterial.SetTexture("_MainTex", FOWRenderTexture); // It will be projected using a Plane.
 
-		outputAlphaBuffer = new ComputeBuffer(1, sizeof(float) * MAX_ENEMY_AGENT_COUNT);
+		outputAlphaBuffer = new ComputeBuffer(1, sizeof(float) * MAX_ENEMY_AGENT_COUNT, ComputeBufferType.IndirectArguments);
 		kernelID = pixelReader.FindKernel("ReadPixels");
 		pixelReader.SetTexture(kernelID, "inputTexture", FOWRenderTexture);
 		pixelReader.SetBuffer(kernelID, "outputBuffer", outputAlphaBuffer);
@@ -334,4 +334,4 @@ public class FOVManager : MonoBehaviour
 		FOVAgents.Clear();
 	}
 }
-
+}

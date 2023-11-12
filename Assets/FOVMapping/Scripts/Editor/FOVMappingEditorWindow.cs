@@ -2,7 +2,10 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Events;
+using FOVMapping;
 
+namespace FOVMapping
+{
 public class FOVMappingEditorWindow : EditorWindow
 {
 	[SerializeField] private FOVMapGenerationInfo generationInfo;
@@ -45,4 +48,4 @@ public class FOVMappingEditorWindow : EditorWindow
 		EditorGUILayout.EndVertical();
 	}
 }
-
+}

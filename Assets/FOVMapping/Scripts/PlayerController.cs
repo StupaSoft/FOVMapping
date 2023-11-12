@@ -1,8 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using UnityEngine;
+﻿using UnityEngine;
+using FOVMapping;
 
+namespace FOVMapping
+{
 public class PlayerController : MonoBehaviour
 {
 	private CharacterController characterController;
@@ -40,4 +40,5 @@ public class PlayerController : MonoBehaviour
 		}
 		transform.Rotate(Vector3.up * angularDirection * rotation * Time.fixedDeltaTime);
 	}
+}
 }
