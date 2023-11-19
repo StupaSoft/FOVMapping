@@ -33,7 +33,7 @@
 			{
 				float4 pos : SV_POSITION; // Clip-space position
 				float2 uv : TEXCOORD0;
-				float3 camRelativeWorldPos : TEXCOORD1; // World space view direction
+				float3 offsetToPlane : TEXCOORD1; // World space view direction
 				float4 screenPos : TEXCOORD2;
 			};
 
@@ -44,7 +44,7 @@
 
 				o.pos = UnityObjectToClipPos(v.vertex);
 				o.uv = v.texcoord;
-				o.camRelativeWorldPos = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz - _WorldSpaceCameraPos; // Position relative to the camera, but without considering the depth.
+				o.offsetToPlane = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz - _WorldSpaceCameraPos; // Position relative to the camera of the shaded point on the plane (depth not considered)
 				o.screenPos = ComputeScreenPos(o.pos);
 
 				return o;
@@ -56,13 +56,11 @@
 				// Get the depth value from the camera (note that this is not the distance traveled by the ray)
 				float depth = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2Dproj(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos))));
 	
-				// The intersection point between the ray (camera, worldPos) and the camera's view plane,
-				// but the coordinates are relative to the camera.
-                float3 rayViewPlaneIntersection = i.camRelativeWorldPos.xyz / dot(i.camRelativeWorldPos.xyz, unity_WorldToCamera._m20_m21_m22);
-	
-				// Find the world coordinates of the point using the following proportional expression.
-				// cameraNormalLength : depth = rayViewPlaneIntersection : (worldPos - _WorldSpaceCameraPos)
-				float3 worldPos = _WorldSpaceCameraPos + rayViewPlaneIntersection * depth;
+				// We can derive the following proportional expression from the similarity of triangles.
+				// offsetToPlane : dot(offsetToPlane, camNormal) = offsetToPos : depth * camNormal
+				// Solve this for offsetToPos.
+				float3 offsetToPos = (depth * i.offsetToPlane.xyz) / dot(i.offsetToPlane.xyz, unity_WorldToCamera._m20_m21_m22);
+				float3 worldPos = _WorldSpaceCameraPos + offsetToPos;
 
 				return worldPos;
 			}
