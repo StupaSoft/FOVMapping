@@ -23,10 +23,6 @@
 			uniform float4 _FOWColor;
 			UNITY_DECLARE_TEX2DARRAY(_FOVMap);
 
-			uniform float4 _PlanePosition;
-			uniform float4 _PlaneRight;
-			uniform float4 _PlaneForward;
-
 			uniform float _PlaneSizeX;
 			uniform float _PlaneSizeZ;
 
@@ -60,7 +56,7 @@
 
 				o.uv = uv; // [0, 1]
 				o.pos = UnityObjectToClipPos(pos); // Clip-space position
-				o.worldPos = _PlanePosition + (uv.x * _PlaneSizeX * _PlaneRight) + (uv.y * _PlaneSizeZ * _PlaneForward); // World-space square vertex position - subtract 0.5f to align to the plane center
+				o.worldPos = float3(uv.x * _PlaneSizeX, 0.0f, uv.y * _PlaneSizeZ);
 
 				return o;
 			}

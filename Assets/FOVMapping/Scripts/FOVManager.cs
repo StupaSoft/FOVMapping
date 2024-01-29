@@ -183,20 +183,19 @@ public class FOVManager : MonoBehaviour
 				FOVAgent agent = FOVAgents[i];
 				if (agent.enabled && agent.contributeToFOV)
 				{
-					positions.Add(agent.transform.position);
-					forwards.Add(agent.transform.forward);
+					Vector3 relativePos = Vector3.Scale(transform.InverseTransformPoint(agent.transform.position), transform.lossyScale); // Position of the agent relative to the FOW plane
+					Vector3 relativeForward = transform.InverseTransformDirection(agent.transform.forward); // Ditto
+
+					positions.Add(relativePos);
+					forwards.Add(relativeForward);
 					ranges.Add(agent.sightRange);
 					angleCosines.Add(Mathf.Cos(agent.sightAngle * 0.5f * Mathf.Deg2Rad));
 				}
 			}
 
 			// Set uniform values for FOVMaterial
-			FOVMaterial.SetVector("_PlanePosition", transform.position);
-			FOVMaterial.SetVector("_PlaneRight", transform.right);
-			FOVMaterial.SetVector("_PlaneForward", transform.forward);
-
-			FOVMaterial.SetFloat("_PlaneSizeX", transform.localScale.x);
-			FOVMaterial.SetFloat("_PlaneSizeZ", transform.localScale.z);
+			FOVMaterial.SetFloat("_PlaneSizeX", transform.lossyScale.x);
+			FOVMaterial.SetFloat("_PlaneSizeZ", transform.lossyScale.z);
 
 			FOVMaterial.SetColor("_FOWColor", FOWColor);
 
