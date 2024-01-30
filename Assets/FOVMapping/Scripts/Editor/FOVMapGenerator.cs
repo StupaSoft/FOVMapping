@@ -152,7 +152,7 @@ public class FOVMapGenerator : MonoBehaviour
 					for (int directionIdx = 0; directionIdx < directionsPerSquare; ++directionIdx)
 					{
 						// Sample a distance to an obstacle
-						float angleToward = directionIdx * anglePerDirection;
+						float angleToward = Vector3.SignedAngle(generationInfo.plane.right, Vector3.right, Vector3.up) + directionIdx * anglePerDirection;
 
 						// Level-adaptive multisampling
 						float maxSight = 0.0f; // Maximum sight viewed from the center
