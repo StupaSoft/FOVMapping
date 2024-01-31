@@ -176,8 +176,6 @@ public class FOVManager : MonoBehaviour
 			forwards.Clear();
 			angleCosines.Clear();
 
-			if (FOVAgents.Count == 0) return;
-
 			for (int i = 0; i < FOVAgents.Count; i++)
 			{
 				FOVAgent agent = FOVAgents[i];
@@ -193,19 +191,20 @@ public class FOVManager : MonoBehaviour
 				}
 			}
 
+			FOVMaterial.SetInt("_AgentCount", positions.Count);
+			if (positions.Count > 0)
+			{
+				FOVMaterial.SetVectorArray("_Positions", positions);
+				FOVMaterial.SetVectorArray("_Forwards", forwards);
+				FOVMaterial.SetFloatArray("_Ranges", ranges);
+				FOVMaterial.SetFloatArray("_AngleCosines", angleCosines);
+			}
+
 			// Set uniform values for FOVMaterial
 			FOVMaterial.SetFloat("_PlaneSizeX", transform.lossyScale.x);
 			FOVMaterial.SetFloat("_PlaneSizeZ", transform.lossyScale.z);
 
 			FOVMaterial.SetColor("_FOWColor", FOWColor);
-
-			FOVMaterial.SetInt("_AgentCount", positions.Count);
-
-			FOVMaterial.SetVectorArray("_Positions", positions);
-			FOVMaterial.SetVectorArray("_Forwards", forwards);
-			FOVMaterial.SetFloatArray("_Ranges", ranges);
-			FOVMaterial.SetFloatArray("_AngleCosines", angleCosines);
-
 			FOVMaterial.SetFloat("_BlockOffset", blockOffset);
 
 			// Set uniform values for FOWMaterial
