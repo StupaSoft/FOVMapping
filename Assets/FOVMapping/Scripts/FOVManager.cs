@@ -22,10 +22,12 @@ public class FOVManager : MonoBehaviour
 	[Tooltip("Color of the fog of war")]
 	private Color FOWColor = new Color(0.1f, 0.1f, 0.1f, 0.7f);
 
+	[Range(0, 4096)]
 	[SerializeField]
 	[Tooltip("Maximum number of friendly agents (contributeToFOW == true)")]
 	private int maxFriendlyAgentCount = 128;
 
+	[Range(0, 4096)]
 	[SerializeField]
 	[Tooltip("Maximum number of enemy agents (disappearInFOW == true)")]
 	private int maxEnemyAgentCount = 128;
@@ -208,6 +210,11 @@ public class FOVManager : MonoBehaviour
 				}
 			}
 
+			if (positions.Count > maxFriendlyAgentCount)
+			{
+				Debug.LogError($"Maximum friendly agent count ({maxFriendlyAgentCount}) exceeded.");
+			}
+
 			FOVMaterial.SetInt("_AgentCount", positions.Count);
 			if (positions.Count > 0)
 			{
@@ -301,6 +308,11 @@ public class FOVManager : MonoBehaviour
 					targetAgents.Add(agent);
 					targetAgentUVs.Add(agentUV);
 				}
+			}
+
+			if (targetAgents.Count > maxEnemyAgentCount)
+			{
+				Debug.LogError($"Maximum enemy agent count ({maxEnemyAgentCount}) exceeded.");
 			}
 
 			// Use the compute shader to retrieve pixel data from the GPU to CPU
