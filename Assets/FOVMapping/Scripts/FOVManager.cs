@@ -22,9 +22,16 @@ public class FOVManager : MonoBehaviour
 	[Tooltip("Color of the fog of war")]
 	private Color FOWColor = new Color(0.1f, 0.1f, 0.1f, 0.7f);
 
+	[SerializeField]
+	[Tooltip("Maximum number of friendly agents (contributeToFOW == true)")]
+	private int maxFriendlyAgentCount = 128;
+
+	[SerializeField]
+	[Tooltip("Maximum number of enemy agents (disappearInFOW == true)")]
+	private int maxEnemyAgentCount = 128;
+
 	// Agent visibility
 	private ComputeBuffer outputAlphaBuffer;
-	private const int MAX_ENEMY_AGENT_COUNT = 128;
 	private int kernelID;
 
 	// Runtime adjustments
@@ -40,10 +47,15 @@ public class FOVManager : MonoBehaviour
 
 	// Agents status
 	private List<FOVAgent> FOVAgents;
-	private List<Vector4> positions = new List<Vector4>();
-	private List<Vector4> forwards = new List<Vector4>();
+
+	private List<Vector3> positions = new List<Vector3>();
+	ComputeBuffer positionsBuffer;
+	private List<Vector3> forwards = new List<Vector3>();
+	ComputeBuffer forwardsBuffer;
 	private List<float> ranges = new List<float>();
+	ComputeBuffer rangesBuffer;
 	private List<float> angleCosines = new List<float>();
+	ComputeBuffer angleCosinesBuffer;
 
 	// Postprocessing
 	[Range(1.0f, 100.0f)]
@@ -111,10 +123,15 @@ public class FOVManager : MonoBehaviour
 		FOWRenderTexture = new RenderTexture(FOWTextureSize, FOWTextureSize, 1, RenderTextureFormat.ARGB32);
 		FOWMaterial.SetTexture("_MainTex", FOWRenderTexture); // It will be projected using a Plane.
 
-		outputAlphaBuffer = new ComputeBuffer(1, sizeof(float) * MAX_ENEMY_AGENT_COUNT, ComputeBufferType.IndirectArguments);
+		outputAlphaBuffer = new ComputeBuffer(1, sizeof(float) * maxEnemyAgentCount, ComputeBufferType.IndirectArguments);
 		kernelID = pixelReader.FindKernel("ReadPixels");
 		pixelReader.SetTexture(kernelID, "inputTexture", FOWRenderTexture);
 		pixelReader.SetBuffer(kernelID, "outputBuffer", outputAlphaBuffer);
+
+		positionsBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float) * 3, ComputeBufferType.IndirectArguments);
+		forwardsBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float) * 3, ComputeBufferType.IndirectArguments);
+		rangesBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float), ComputeBufferType.IndirectArguments);
+		angleCosinesBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float), ComputeBufferType.IndirectArguments);
 
 		EnableFOV();
 	}
@@ -194,10 +211,15 @@ public class FOVManager : MonoBehaviour
 			FOVMaterial.SetInt("_AgentCount", positions.Count);
 			if (positions.Count > 0)
 			{
-				FOVMaterial.SetVectorArray("_Positions", positions);
-				FOVMaterial.SetVectorArray("_Forwards", forwards);
-				FOVMaterial.SetFloatArray("_Ranges", ranges);
-				FOVMaterial.SetFloatArray("_AngleCosines", angleCosines);
+				positionsBuffer.SetData(positions);
+				forwardsBuffer.SetData(forwards);
+				rangesBuffer.SetData(ranges);
+				angleCosinesBuffer.SetData(angleCosines);
+
+				FOVMaterial.SetBuffer("_Positions", positionsBuffer);
+				FOVMaterial.SetBuffer("_Forwards", forwardsBuffer);
+				FOVMaterial.SetBuffer("_Ranges", rangesBuffer);
+				FOVMaterial.SetBuffer("_AngleCosines", angleCosinesBuffer);
 			}
 
 			// Set uniform values for FOVMaterial
@@ -287,7 +309,7 @@ public class FOVManager : MonoBehaviour
 
 			pixelReader.Dispatch(kernelID, 1, 1, 1);
 
-			float[] outputAlphaArray = new float[MAX_ENEMY_AGENT_COUNT];
+			float[] outputAlphaArray = new float[maxEnemyAgentCount];
 			outputAlphaBuffer.GetData(outputAlphaArray);
 
 			// Set visibility

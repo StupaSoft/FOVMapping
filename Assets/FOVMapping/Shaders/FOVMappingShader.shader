@@ -28,11 +28,10 @@
 
 			uniform int _AgentCount;
 
-			uniform float4 _Positions[100]; // World coordinate agent positions
-			uniform float4 _Forwards[100]; // World coordinate agent forwards
-
-			uniform float _Ranges[100];
-			uniform float _AngleCosines[100];
+			StructuredBuffer<float3> _Positions; // World coordinate agent positions
+			StructuredBuffer<float3> _Forwards; // World coordinate agent forwards
+			StructuredBuffer<float> _Ranges;
+			StructuredBuffer<float> _AngleCosines;
 
 			uniform float _SamplingRange;
 			uniform int _LayerCount;
@@ -74,8 +73,8 @@
 	
 				for (int i = 0; i < _AgentCount; ++i)
 				{
-					float3 agentPosition = _Positions[i].xyz;
-					float3 agentForward = _Forwards[i].xyz;
+					float3 agentPosition = _Positions[i];
+					float3 agentForward = _Forwards[i];
 					float agentSightRange = _Ranges[i];
 					float agentSightAngleCosine = _AngleCosines[i];
 
