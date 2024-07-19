@@ -151,6 +151,11 @@ public class FOVManager : MonoBehaviour
 
 	private void OnDestroy()
 	{
+		if (positionsBuffer != null) positionsBuffer.Release();
+		if (forwardsBuffer != null) forwardsBuffer.Release();
+		if (rangesBuffer != null) rangesBuffer.Release();
+		if (angleCosinesBuffer != null)	angleCosinesBuffer.Release();
+
 		if (outputAlphaBuffer != null) outputAlphaBuffer.Release();
 	}
 
