@@ -221,18 +221,17 @@ public class FOVManager : MonoBehaviour
 			}
 
 			FOVMaterial.SetInt("_AgentCount", positions.Count);
-			if (positions.Count > 0)
-			{
-				positionsBuffer.SetData(positions);
-				forwardsBuffer.SetData(forwards);
-				rangesBuffer.SetData(ranges);
-				angleCosinesBuffer.SetData(angleCosines);
 
-				FOVMaterial.SetBuffer("_Positions", positionsBuffer);
-				FOVMaterial.SetBuffer("_Forwards", forwardsBuffer);
-				FOVMaterial.SetBuffer("_Ranges", rangesBuffer);
-				FOVMaterial.SetBuffer("_AngleCosines", angleCosinesBuffer);
-			}
+			// Bind buffers
+			positionsBuffer.SetData(positions);
+			forwardsBuffer.SetData(forwards);
+			rangesBuffer.SetData(ranges);
+			angleCosinesBuffer.SetData(angleCosines);
+
+			FOVMaterial.SetBuffer("_Positions", positionsBuffer);
+			FOVMaterial.SetBuffer("_Forwards", forwardsBuffer);
+			FOVMaterial.SetBuffer("_Ranges", rangesBuffer);
+			FOVMaterial.SetBuffer("_AngleCosines", angleCosinesBuffer);
 
 			// Set uniform values for FOVMaterial
 			FOVMaterial.SetFloat("_PlaneSizeX", transform.lossyScale.x);
