@@ -44,28 +44,35 @@
 
 				o.pos = UnityObjectToClipPos(v.vertex);
 				o.uv = v.texcoord;
-				o.offsetToPlane = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz - _WorldSpaceCameraPos; // Position relative to the camera of the shaded point on the plane (depth not considered)
+				o.offsetToPlane = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz - _WorldSpaceCameraPos; // Offset from the camera to the shaded point on the FOW plane
 				o.screenPos = ComputeScreenPos(o.pos);
 
 				return o;
+			}
+
+			float CorrectDepth(float depth)
+			{
+				float perspective = LinearEyeDepth(depth);
+				float orthographic = (_ProjectionParams.z - _ProjectionParams.y) * (1.0f - depth) + _ProjectionParams.y;
+				return lerp(perspective, orthographic, unity_OrthoParams.w);
 			}
 			
 			// Find the world position, this time with the depth considered.
 			float3 GetWorldPosFromDepth(v2f i)
 			{
 				// Get the depth value from the camera (note that this is not the distance traveled by the ray)
-				float depth = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2Dproj(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos))));
+				float depth = CorrectDepth(tex2Dproj(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)).r);
 	
 				// We can derive the following proportional expression from the similarity of triangles.
 				// offsetToPlane : dot(offsetToPlane, camNormal) = offsetToPos : depth * camNormal
 				// Solve this for offsetToPos.
-				float3 offsetToPos = (depth * i.offsetToPlane.xyz) / dot(i.offsetToPlane.xyz, unity_WorldToCamera._m20_m21_m22);
+				float3 offsetToPos = (depth * i.offsetToPlane) / dot(i.offsetToPlane, unity_CameraToWorld._m02_m12_m22);
 				float3 worldPos = _WorldSpaceCameraPos + offsetToPos;
 
 				return worldPos;
 			}
 			
-			// Given a world position, convert it to UV coordinates projected upon the plane 
+			// Given a world position, convert it to UV coordinates projected upon the plane. 
 			float2 WorldPosToPlaneUV(float3 targetPos, float3 planePos, float3 planeRight, float3 planeForward, float3 planeScale)
 			{
 				float3 relativePos = targetPos - planePos;
