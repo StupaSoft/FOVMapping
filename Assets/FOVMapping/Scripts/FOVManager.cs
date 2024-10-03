@@ -181,7 +181,7 @@ public class FOVManager : MonoBehaviour
 			if (elapsedTimeFromLastUpdate >= updateInterval)
 			{
 				SetShaderValues();
-				SetAgentVisibility(); // Call before ApplyFOWPass, as calling it after the pass will stall the main thread for a while.
+				UpdateAgentVisibility(); // Call before ApplyFOWPass, as calling it after the pass will stall the main thread for a while.
 				ApplyFOWPass(); // Call after the rendering has finished to prevent flickers.
 
 				elapsedTimeFromLastUpdate = 0.0f;
@@ -285,7 +285,7 @@ public class FOVManager : MonoBehaviour
 		}
 
 		// Set visibility of agents according to the current FOV
-		void SetAgentVisibility()
+		void UpdateAgentVisibility()
 		{
 			List<FOVAgent> targetAgents = new List<FOVAgent>();
 			List<Vector4> targetAgentUVs = new List<Vector4>();
@@ -299,7 +299,7 @@ public class FOVManager : MonoBehaviour
 
 					// Process agents inside the camera viewport only
 					Vector3 viewportPosition = Camera.main.WorldToViewportPoint(agentPosition);
-					if (viewportPosition.x < 0.0f || viewportPosition.x > 1.0f && viewportPosition.y < 0.0f || viewportPosition.y > 1.0f || viewportPosition.z <= 0.0f)
+					if ((viewportPosition.x < -0.5f || viewportPosition.x > 1.5f) || (viewportPosition.y < -0.5f || viewportPosition.y > 1.5f) || viewportPosition.z < -0.5f)
 					{
 						continue;
 					}

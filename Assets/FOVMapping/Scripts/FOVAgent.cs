@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using FOVMapping;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace FOVMapping
 {
@@ -35,11 +37,11 @@ public class FOVAgent : MonoBehaviour
 	private float _disappearAlphaThreshold = 0.1f;
 	public float disappearAlphaThreshold { get => _disappearAlphaThreshold; set => _disappearAlphaThreshold = value; }
 	private bool isUnderFOW = false;
-	private MeshRenderer meshRenderer;
+	private List<MeshRenderer> meshRenderers;
 
 	private void Awake()
 	{
-		meshRenderer = GetComponent<MeshRenderer>();
+		meshRenderers = GetComponentsInChildren<MeshRenderer>().ToList();
 	}
 
 	[HideInInspector]
@@ -48,8 +50,12 @@ public class FOVAgent : MonoBehaviour
 		isUnderFOW = isUnder;
 		if (disappearInFOW)
 		{
-			if (meshRenderer == null) return;
-			meshRenderer.enabled = isUnder;
+			if (meshRenderers == null) return;
+
+			for (int  i = 0; i < meshRenderers.Count; i++) 
+			{
+				meshRenderers[i].enabled = isUnder;
+			}
 		}
 	}
 
