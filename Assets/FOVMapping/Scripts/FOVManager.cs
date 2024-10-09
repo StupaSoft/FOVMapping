@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using FOVMapping;
+using UnityEngine.Rendering;
 
 namespace FOVMapping
 {
@@ -35,6 +36,8 @@ public class FOVManager : MonoBehaviour
 	// Agent visibility
 	private ComputeBuffer outputAlphaBuffer;
 	private int kernelID;
+	private List<FOVAgent> visibilityTargetAgents = new List<FOVAgent>();
+	private bool needAgentVisibilityUpdate = true;
 
 	// Runtime adjustments
 	[Range(0.01f, 1.0f)]
@@ -146,7 +149,6 @@ public class FOVManager : MonoBehaviour
 	private void OnDisable() 
 	{
 		if (Camera.main != null) Camera.main.depthTextureMode = DepthTextureMode.None;
-
 	}
 
 	private void OnDestroy()
@@ -181,7 +183,7 @@ public class FOVManager : MonoBehaviour
 			if (elapsedTimeFromLastUpdate >= updateInterval)
 			{
 				SetShaderValues();
-				UpdateAgentVisibility(); // Call before ApplyFOWPass, as calling it after the pass will stall the main thread for a while.
+				if (needAgentVisibilityUpdate) RequestUpdateAgentVisibility(); // Call before ApplyFOWPass, as calling it after the pass will stall the main thread for a while.
 				ApplyFOWPass(); // Call after the rendering has finished to prevent flickers.
 
 				elapsedTimeFromLastUpdate = 0.0f;
@@ -285,9 +287,11 @@ public class FOVManager : MonoBehaviour
 		}
 
 		// Set visibility of agents according to the current FOV
-		void UpdateAgentVisibility()
+		void RequestUpdateAgentVisibility()
 		{
-			List<FOVAgent> targetAgents = new List<FOVAgent>();
+			needAgentVisibilityUpdate = false;
+
+			visibilityTargetAgents.Clear();
 			List<Vector4> targetAgentUVs = new List<Vector4>();
 
 			for (int i = 0; i < FOVAgents.Count; i++)
@@ -309,34 +313,41 @@ public class FOVManager : MonoBehaviour
 					Vector2 agentUV = new Vector2(agentLocalPosition.x, agentLocalPosition.z);
 					agentUV *= FOWTextureSize;
 
-					targetAgents.Add(agent);
+					visibilityTargetAgents.Add(agent);
 					targetAgentUVs.Add(agentUV);
 				}
 			}
 
-			if (targetAgents.Count > maxEnemyAgentCount)
+			if (visibilityTargetAgents.Count > maxEnemyAgentCount)
 			{
 				Debug.LogError($"Maximum enemy agent count ({maxEnemyAgentCount}) exceeded.");
 			}
 
 			// Use the compute shader to retrieve pixel data from the GPU to CPU
-			pixelReader.SetInt("targetAgentCount", targetAgents.Count);
+			pixelReader.SetInt("targetAgentCount", visibilityTargetAgents.Count);
 			pixelReader.SetVectorArray("targetAgentUVs", targetAgentUVs.ToArray());
 
 			pixelReader.Dispatch(kernelID, 1, 1, 1);
 
-			float[] outputAlphaArray = new float[maxEnemyAgentCount];
-			outputAlphaBuffer.GetData(outputAlphaArray);
-
-			// Set visibility
-			for (int i = 0; i < targetAgents.Count; ++i) 
-			{
-				FOVAgent agent = targetAgents[i];
-
-				bool isInSight = outputAlphaArray[i] <= agent.disappearAlphaThreshold;
-				agent.SetUnderFOW(isInSight);
-			}
+			// Asynchronous request to the GPU
+			AsyncGPUReadback.Request(outputAlphaBuffer, OnRetrieveAgentVisibility);
 		}
+	}
+
+	private void OnRetrieveAgentVisibility(AsyncGPUReadbackRequest request)
+	{
+		float[] alphaSamples = request.GetData<float>().ToArray(); // Sampling result of the FOW at the locations of agents
+
+		// Set visibility
+		for (int i = 0; i < visibilityTargetAgents.Count; ++i)
+		{
+			FOVAgent agent = visibilityTargetAgents[i];
+
+			bool isInSight = alphaSamples[i] <= agent.disappearAlphaThreshold;
+			agent.SetUnderFOW(isInSight);
+		}
+
+		needAgentVisibilityUpdate = true;
 	}
 
 	// Interfaces
