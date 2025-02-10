@@ -15,6 +15,8 @@ public class FOVManager : MonoBehaviour
 	// Fog of war fields
 	private RenderTexture FOWRenderTexture;
 
+	private bool isURP;
+
 	[SerializeField]
 	[Tooltip("Size of the fog of war RenderTexture that will be projected with the Plane")]
 	private int FOWTextureSize = 2048;
@@ -106,6 +108,22 @@ public class FOVManager : MonoBehaviour
 		GetComponent<MeshRenderer>().material = FOWMaterial;
 
 		blurMaterial = new Material(GaussianShader);
+
+		if (GraphicsSettings.defaultRenderPipeline != null)
+        {
+            if (GraphicsSettings.defaultRenderPipeline.GetType().Name == "UniversalRenderPipelineAsset")
+            {
+				isURP = true;
+			}
+			else
+			{
+				isURP = false;
+			}
+        }
+        else
+        {
+			isURP = false;
+		}
 	}
 
 	private void Start()
@@ -265,23 +283,38 @@ public class FOVManager : MonoBehaviour
 
 			// Apply Gaussian blur shader multiple times
 			// Render to one another alternately
-			for (int i = 0; i < blurIterationCount; ++i)
+
+			if (isURP)
 			{
-				if (i % 2 == 0)
+				for (int i = 0; i < blurIterationCount; ++i)
 				{
+					blurMaterial.SetVector("_Direction", new Vector2(1, 0));
 					Graphics.Blit(FOWRenderTexture, temp, blurMaterial);
-				}
-				else
-				{
+					blurMaterial.SetVector("_Direction", new Vector2(0, 1));
 					Graphics.Blit(temp, FOWRenderTexture, blurMaterial);
 				}
 			}
-
-			// If the final result is in temp, copy the content to FOWRenderTexture
-			if (blurIterationCount % 2 != 0)
+			else
 			{
-				Graphics.Blit(temp, FOWRenderTexture);
+				for (int i = 0; i < blurIterationCount; ++i)
+				{
+					if (i % 2 == 0)
+					{
+						Graphics.Blit(FOWRenderTexture, temp, blurMaterial);
+					}
+					else
+					{
+						Graphics.Blit(temp, FOWRenderTexture, blurMaterial);
+					}
+				}
+
+				// If the final result is in temp, copy the content to FOWRenderTexture
+				if (blurIterationCount % 2 != 0)
+				{
+					Graphics.Blit(temp, FOWRenderTexture);
+				}
 			}
+
 
 			RenderTexture.ReleaseTemporary(temp);
 		}

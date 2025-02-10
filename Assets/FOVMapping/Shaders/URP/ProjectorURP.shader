@@ -1,4 +1,4 @@
-﻿Shader"FOV/Projector" 
+﻿Shader"FOV/ProjectorURP" 
 {
 	Properties 
 	{
@@ -7,21 +7,24 @@
 
 	Subshader 
 	{
-		Tags { "Queue"="Overlay+1" }
-		ZTest Always
+		Tags { "RenderType"="Overlay+1" }
+
+		ZTest Off
+		Blend SrcAlpha OneMinusSrcAlpha
+
 		Pass 
 		{
-			Blend SrcAlpha
-			OneMinusSrcAlpha
-
-			CGPROGRAM
+			HLSLPROGRAM
 			
 			#pragma vertex vert
 			#pragma fragment frag
 			#pragma target 3.0
-			#include "UnityCG.cginc"
-
+			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+			
+			CBUFFER_START(UnityPerMaterial)
 			uniform sampler2D _MainTex;
+			CBUFFER_END
+
 			uniform sampler2D _CameraDepthTexture;
 
 			uniform float3 _PlanePos;
@@ -29,7 +32,13 @@
 			uniform float3 _PlaneForward;
 			uniform float3 _PlaneScale;
 
-			struct v2f
+			struct Attributes
+			{
+				float4 pos : POSITION;
+				float2 uv : TEXCOORD0;
+			};
+
+			struct Varyings
 			{
 				float4 pos : SV_POSITION; // Clip-space position
 				float2 uv : TEXCOORD0;
@@ -38,30 +47,30 @@
 			};
 
 			// Vertex shader
-			v2f vert(appdata_full v)
+			Varyings vert(Attributes input)
 			{
-				v2f o;
+				Varyings output;
 
-				o.pos = UnityObjectToClipPos(v.vertex);
-				o.uv = v.texcoord;
-				o.offsetToPlane = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz - _WorldSpaceCameraPos; // Offset from the camera to the shaded point on the FOW plane
-				o.screenPos = ComputeScreenPos(o.pos);
+				output.pos = TransformObjectToHClip(input.pos.xyz);
+				output.uv = input.uv;
+				output.offsetToPlane = mul(unity_ObjectToWorld, float4(input.pos.xyz, 1.0f)).xyz - _WorldSpaceCameraPos; // Offset from the camera to the shaded point on the FOW plane
+				output.screenPos = ComputeScreenPos(output.pos);
 
-				return o;
+				return output;
 			}
 
 			float CorrectDepth(float depth)
 			{
-				float perspective = LinearEyeDepth(depth);
+				float perspective = LinearEyeDepth(depth, _ZBufferParams);
 				float orthographic = (_ProjectionParams.z - _ProjectionParams.y) * (1.0f - depth) + _ProjectionParams.y;
 				return lerp(perspective, orthographic, unity_OrthoParams.w);
 			}
 			
 			// Find the world position, this time with the depth considered.
-			float3 GetWorldPosFromDepth(v2f i)
+			float3 GetWorldPosFromDepth(Varyings i)
 			{
 				// Get the depth value from the camera (note that this is not the distance traveled by the ray)
-				float depth = CorrectDepth(tex2Dproj(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)).r);
+				float depth = CorrectDepth(tex2D(_CameraDepthTexture, i.screenPos.xy / i.screenPos.w).r);
 	
 				// We can derive the following proportional expression from the similarity of triangles.
 				// offsetToPlane : dot(offsetToPlane, camNormal) = offsetToPos : depth * camNormal
@@ -82,14 +91,14 @@
 				return float2(u, v);
 			}
 
-			float4 frag(v2f i) : SV_Target
+			float4 frag(Varyings input) : SV_Target
 			{
-				float3 pointPos = GetWorldPosFromDepth(i);
+				float3 pointPos = GetWorldPosFromDepth(input);
 				float2 pointUV = WorldPosToPlaneUV(pointPos, _PlanePos, _PlaneRight, _PlaneForward, _PlaneScale);
 				return tex2D(_MainTex, pointUV);
 			}
 
-			ENDCG
+			ENDHLSL
 		}
 	}
 }
