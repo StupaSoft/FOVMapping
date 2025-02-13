@@ -38,7 +38,7 @@
 
 			uniform float _BlockOffset;
 
-			static const int CHANNELS_PER_TEXEL = 4;
+			static const uint CHANNELS_PER_TEXEL = 4;
 			static const float PI = 3.141592f;
 
 			struct v2f
@@ -90,14 +90,14 @@
 					// Sample the FOV map
 					float directionFactor = angle / anglePerDirection;
 
-					int directionIdx0 = (int)directionFactor;
-					int directionIdx1 = (directionIdx0 + 1) % directionsPerSquare;
+					uint directionIdx0 = (uint)directionFactor;
+					uint directionIdx1 = (directionIdx0 + 1) % directionsPerSquare;
 
-					int layerIdx0 = directionIdx0 / CHANNELS_PER_TEXEL;
-					int layerIdx1 = directionIdx1 / CHANNELS_PER_TEXEL;
+					uint layerIdx0 = directionIdx0 / CHANNELS_PER_TEXEL;
+					uint layerIdx1 = directionIdx1 / CHANNELS_PER_TEXEL;
 
-					int channelIdx0 = directionIdx0 % CHANNELS_PER_TEXEL;
-					int channelIdx1 = directionIdx1 % CHANNELS_PER_TEXEL;
+					uint channelIdx0 = directionIdx0 % CHANNELS_PER_TEXEL;
+					uint channelIdx1 = directionIdx1 % CHANNELS_PER_TEXEL;
 
 					float distanceRatio0 = UNITY_SAMPLE_TEX2DARRAY(_FOVMap, float3(agentPosition.x / _PlaneSizeX, agentPosition.z / _PlaneSizeZ, layerIdx0))[channelIdx0];
 					float distanceRatio1 = UNITY_SAMPLE_TEX2DARRAY(_FOVMap, float3(agentPosition.x / _PlaneSizeX, agentPosition.z / _PlaneSizeZ, layerIdx1))[channelIdx1];

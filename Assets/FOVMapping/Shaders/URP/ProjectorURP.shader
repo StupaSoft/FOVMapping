@@ -7,7 +7,7 @@
 
 	Subshader 
 	{
-		Tags { "RenderType"="Overlay+1" }
+		Tags { "Queue"="Transparent+1" }
 
 		ZTest Off
 		Blend SrcAlpha OneMinusSrcAlpha
