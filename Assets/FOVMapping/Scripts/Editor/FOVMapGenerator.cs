@@ -246,7 +246,8 @@ public class FOVMapGenerator : MonoBehaviour
 		}
 
 		// Store the FOV info in a texture array
-		Texture2DArray textureArray = new Texture2DArray(generationInfo.FOVMapWidth, generationInfo.FOVMapHeight, generationInfo.layerCount, TextureFormat.RGBA32, false, false);
+		bool isLinear = (PlayerSettings.colorSpace == ColorSpace.Linear);
+		Texture2DArray textureArray = new Texture2DArray(generationInfo.FOVMapWidth, generationInfo.FOVMapHeight, generationInfo.layerCount, TextureFormat.RGBA32, false, isLinear);
 		textureArray.filterMode = FilterMode.Bilinear;
 		textureArray.wrapMode = TextureWrapMode.Clamp;
 
