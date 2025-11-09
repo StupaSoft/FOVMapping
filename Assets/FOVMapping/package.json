@@ -1,0 +1,18 @@
+{
+  "name": "com.stupasoft.fovmapping",
+  "displayName": "Fog of War and Field of View Mapping",
+  "version": "2.1.0",
+  "unity": "2022.3",
+  "licensesUrl": "See LICENSE.md",
+  "hideInEditor": "false",
+  "author": {
+    "name": "StupaSoft",
+    "email": "stupasoft@gmail.com"
+  },
+  "description": "Fast GPU accelerated FOV mapping for RTS Fog of War Generation for Unity.",
+  "dependencies": {},
+  "keywords": [
+    "Utility",
+    "Tool"
+  ]
+}
