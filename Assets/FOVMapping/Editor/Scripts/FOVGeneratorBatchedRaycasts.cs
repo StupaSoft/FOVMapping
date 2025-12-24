@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Sirenix.OdinInspector.Editor;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Profiling;

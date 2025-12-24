@@ -10,7 +10,9 @@
     "email": "stupasoft@gmail.com"
   },
   "description": "Fast GPU accelerated FOV mapping for RTS Fog of War Generation for Unity.",
-  "dependencies": {},
+  "dependencies": {
+        "com.unity.collections": "2.5.3"
+  },
   "keywords": [
     "Utility",
     "Tool"
