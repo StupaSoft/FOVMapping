@@ -43,7 +43,7 @@ public class FOVMappingEditorWindow : EditorWindow
             
             if (fovManager == null)
             {
-                EditorGUILayout.HelpBox("Place FOVMapping/Runtime/Prefabs/FOWPlane or FOVMappingURP/Prefabs/FOWPlane into the scene first.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Place FOVMapping/Runtime/Prefabs/FOWPlane or FOVMappingURP/Prefabs/FOWPlane into the scene first.", MessageType.Error);
                 EditorGUILayout.EndVertical();
                 return;
             }
