@@ -3,102 +3,102 @@ using FOVMapping;
 
 namespace FOVMapping
 {
-    public enum BakeAlgorithm
+public enum BakeAlgorithm
+{
+    [Tooltip("Original single-threaded algorithm - slower but proven correct")]
+    SingleThreaded = 0,
+    [Tooltip("Batched Raycasts via RaycastCommand, single-threaded raycast command generation")]
+    BatchedRaycasts = 1,
+    [Tooltip("Fully Jobified RaycastCommand generation.")]
+    BatchedJobs = 2,
+    [Tooltip("New Algorithm: Distance Search instead of Angle Search for Obstacles. (Jobified)")]
+    DistanceSearch = 3
+}
+
+[CreateAssetMenu(fileName = "FOVBakeSettings", menuName = "FOV Mapping/Bake Settings")]
+public class FOVBakeSettings : ScriptableObject
+{
+    [Header("FOV Map Generation")]
+    [Tooltip("(Essential) Path to save the generated FOV map")] 
+    public string path = "FOVMapping/FOVMaps";
+    
+    [Tooltip("(Essential) Name of the FOV map file")] 
+    public string fileName = "FOVMap1024";
+    
+    
+    [Tooltip("(Essential) Layer of the level to be sampled")] 
+    public LayerMask levelLayer;
+    
+    [Tooltip("Width of the generated FOV map")] 
+    public int FOVMapWidth = 1024;
+    
+    [Tooltip("Height of the generated FOV map")] 
+    public int FOVMapHeight = 1024;
+    
+    [Tooltip("Number of layers in the generated FOV map")] 
+    public int layerCount = 90;
+    
+    [Tooltip("Height of the 'sampling eye'")] 
+    public float eyeHeight = 1.8f;
+    
+    [Tooltip("Maximum sampling range; sight system does not work beyond this boundary")] 
+    public float samplingRange = 50.0f;
+    
+    [Tooltip("(Advanced) Vertical angular range from the sampling eye")] 
+    public float samplingAngle = 140.0f;
+    
+    [Tooltip("(Advanced) How many rays will be fired toward a direction at a location?")] 
+    public int samplesPerDirection = 9;
+    
+    [Tooltip("(Advanced) How many iterations for the binary search to find an edge?")] 
+    public int binarySearchCount = 10;
+    
+    [Tooltip("(Advanced) Surfaces steeper than this angle are considered vertical and there will be no further sampling toward the direction at the location.")] 
+    public float blockingSurfaceAngleThreshold = 85.0f;
+    
+    [Tooltip("(Advanced) Surfaces located below this vertical angle are never considered vertical.")] 
+    public float blockedRayAngleThreshold = 0.0f;
+
+    [Header("Algorithm Selection")]
+    [Tooltip("Choose which baking algorithm to use. BatchedJobs is the fastest, but others retained in case of technical errors. All three should produce the same result.")]
+    public BakeAlgorithm bakeAlgorithm = BakeAlgorithm.BatchedJobs;
+    
+    [Tooltip("(Advanced) Maximum number of raycasts to process in a single batch. Higher values = better performance but more memory usage. Lower values = less memory. Only used when BakeAlgorithm != SingleThreaded.")]
+    [Range(1, 1000000)]
+    public int maxBatchSize = 500;
+
+
+    [Header("Generated Assets")]
+    [Tooltip("Generated FOV map Texture2DArray")]
+    public Texture2DArray FOVMapArray;
+
+    /// <summary>
+    /// Converts the settings to FOVMapGenerationInfo for baking
+    /// Note: The plane must be set separately since it's a scene object
+    /// </summary>
+    public FOVMapGenerationInfo ToGenerationInfo(Transform plane)
     {
-        [Tooltip("Original single-threaded algorithm - slower but proven correct")]
-        SingleThreaded = 0,
-        [Tooltip("Batched Raycasts via RaycastCommand, single-threaded raycast command generation")]
-        BatchedRaycasts = 1,
-        [Tooltip("Fully Jobified RaycastCommand generation.")]
-        BatchedJobs = 2,
-        [Tooltip("New Algorithm: Distance Search instead of Angle Search for Obstacles. (Jobified)")]
-        DistanceSearch = 3
-    }
-
-    [CreateAssetMenu(fileName = "FOVBakeSettings", menuName = "FOV Mapping/Bake Settings")]
-    public class FOVBakeSettings : ScriptableObject
-    {
-        [Header("FOV Map Generation")]
-        [Tooltip("(Essential) Path to save the generated FOV map")] 
-        public string path = "FOVMapping/FOVMaps";
-        
-        [Tooltip("(Essential) Name of the FOV map file")] 
-        public string fileName = "FOVMap1024";
-        
-        
-        [Tooltip("(Essential) Layer of the level to be sampled")] 
-        public LayerMask levelLayer;
-        
-        [Tooltip("Width of the generated FOV map")] 
-        public int FOVMapWidth = 1024;
-        
-        [Tooltip("Height of the generated FOV map")] 
-        public int FOVMapHeight = 1024;
-        
-        [Tooltip("Number of layers in the generated FOV map")] 
-        public int layerCount = 90;
-        
-        [Tooltip("Height of the 'sampling eye'")] 
-        public float eyeHeight = 1.8f;
-        
-        [Tooltip("Maximum sampling range; sight system does not work beyond this boundary")] 
-        public float samplingRange = 50.0f;
-        
-        [Tooltip("(Advanced) Vertical angular range from the sampling eye")] 
-        public float samplingAngle = 140.0f;
-        
-        [Tooltip("(Advanced) How many rays will be fired toward a direction at a location?")] 
-        public int samplesPerDirection = 9;
-        
-        [Tooltip("(Advanced) How many iterations for the binary search to find an edge?")] 
-        public int binarySearchCount = 10;
-        
-        [Tooltip("(Advanced) Surfaces steeper than this angle are considered vertical and there will be no further sampling toward the direction at the location.")] 
-        public float blockingSurfaceAngleThreshold = 85.0f;
-        
-        [Tooltip("(Advanced) Surfaces located below this vertical angle are never considered vertical.")] 
-        public float blockedRayAngleThreshold = 0.0f;
-
-        [Header("Algorithm Selection")]
-        [Tooltip("Choose which baking algorithm to use. BatchedJobs is the fastest, but others retained in case of technical errors. All three should produce the same result.")]
-        public BakeAlgorithm bakeAlgorithm = BakeAlgorithm.BatchedJobs;
-        
-        [Tooltip("(Advanced) Maximum number of raycasts to process in a single batch. Higher values = better performance but more memory usage. Lower values = less memory. Only used when BakeAlgorithm != SingleThreaded.")]
-        [Range(1, 1000000)]
-        public int maxBatchSize = 500;
-
-
-        [Header("Generated Assets")]
-        [Tooltip("Generated FOV map Texture2DArray")]
-        public Texture2DArray FOVMapArray;
-
-        /// <summary>
-        /// Converts the settings to FOVMapGenerationInfo for baking
-        /// Note: The plane must be set separately since it's a scene object
-        /// </summary>
-        public FOVMapGenerationInfo ToGenerationInfo(Transform plane)
+        return new FOVMapGenerationInfo
         {
-            return new FOVMapGenerationInfo
-            {
-                path = this.path,
-                fileName = this.fileName,
-                plane = plane,
-                levelLayer = this.levelLayer,
-                FOVMapWidth = this.FOVMapWidth,
-                FOVMapHeight = this.FOVMapHeight,
-                layerCount = this.layerCount,
-                eyeHeight = this.eyeHeight,
-                samplingRange = this.samplingRange,
-                samplingAngle = this.samplingAngle,
-                samplesPerDirection = this.samplesPerDirection,
-                binarySearchCount = this.binarySearchCount,
-                blockingSurfaceAngleThreshold = this.blockingSurfaceAngleThreshold,
-                blockedRayAngleThreshold = this.blockedRayAngleThreshold,
-                maxBatchSize = this.maxBatchSize,
-                bakeAlgorithm = this.bakeAlgorithm
-            };
-        }
+            path = this.path,
+            fileName = this.fileName,
+            plane = plane,
+            levelLayer = this.levelLayer,
+            FOVMapWidth = this.FOVMapWidth,
+            FOVMapHeight = this.FOVMapHeight,
+            layerCount = this.layerCount,
+            eyeHeight = this.eyeHeight,
+            samplingRange = this.samplingRange,
+            samplingAngle = this.samplingAngle,
+            samplesPerDirection = this.samplesPerDirection,
+            binarySearchCount = this.binarySearchCount,
+            blockingSurfaceAngleThreshold = this.blockingSurfaceAngleThreshold,
+            blockedRayAngleThreshold = this.blockedRayAngleThreshold,
+            maxBatchSize = this.maxBatchSize,
+            bakeAlgorithm = this.bakeAlgorithm
+        };
     }
+}
 }
 
 /*
