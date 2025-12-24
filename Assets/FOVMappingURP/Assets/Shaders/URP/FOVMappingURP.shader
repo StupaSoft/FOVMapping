@@ -38,6 +38,7 @@
 			StructuredBuffer<float3> _Forwards; // World coordinate agent forwards
 			StructuredBuffer<float> _Ranges;
 			StructuredBuffer<float> _AngleCosines;
+			StructuredBuffer<float> _OmniRanges;
 
 			uniform float _SamplingRange;
 			uniform int _LayerCount;
@@ -89,6 +90,7 @@
 					float3 agentForward = _Forwards[i];
 					float agentSightRange = _Ranges[i];
 					float agentSightAngleCosine = _AngleCosines[i];
+					float agentOmniSightRange = _OmniRanges[i];
 
 					// About the target FOW pixel
 					float3 direction = FOWPixelPosition - agentPosition;
@@ -123,8 +125,11 @@
 					float obstacleAlphaFactor = distanceToAgent > distanceToObstacle + _BlockOffset; // Sight blocked by obstacles
 					float rangeAlphaFactor = distanceToAgent > agentSightRange; // Sight limited by range
 					float angleAlphaFactor = agentSightAngleCosine > dot(agentForward, direction); // Sight limited by angle
+					float omniRangeAlphaFactor = distanceToAgent > agentOmniSightRange; // Omnidirectional range limitation
 
-					float agentAlphaFactor = max(max(obstacleAlphaFactor, rangeAlphaFactor), angleAlphaFactor); // Constrain vision
+					float directionalAlphaFactor = max(max(obstacleAlphaFactor, rangeAlphaFactor), angleAlphaFactor);
+					float omniAlphaFactor = max(obstacleAlphaFactor, omniRangeAlphaFactor);
+					float agentAlphaFactor = min(directionalAlphaFactor, omniAlphaFactor); // Either directional or omni vision can see the pixel
 
 					// Add vision
 					alphaFactor = min(alphaFactor, agentAlphaFactor);

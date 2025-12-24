@@ -4,6 +4,10 @@ using System.Linq;
 using UnityEngine;
 using FOVMapping;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace FOVMapping
 {
@@ -18,13 +22,27 @@ public class FOVManager : MonoBehaviour
 	private bool isURP;
 
 	[SerializeField]
-	[Tooltip("Size of the fog of war RenderTexture that will be projected with the Plane")]
-	private int FOWTextureSize = 2048;
+	[Tooltip("FOV Bake Settings ScriptableObject")]
+	private FOVBakeSettings settings;
 
+	public FOVBakeSettings Settings 
+	{ 
+		get => settings; 
+		set => settings = value; 
+	}
+	
+	// Render Settings
+	[Header("Render Settings")]
 	[SerializeField]
 	[Tooltip("Color of the fog of war")]
 	private Color FOWColor = new Color(0.1f, 0.1f, 0.1f, 0.7f);
 
+	[SerializeField]
+	[Tooltip("Size of the runtime fog of war RenderTexture that will be projected with the Plane")]
+	private int FOWTextureSize = 2048;
+
+	// Runtime Compute Settings
+	[Header("Runtime Compute Settings")]
 	[Range(0, 4096)]
 	[SerializeField]
 	[Tooltip("Maximum number of friendly agents (contributeToFOW == true)")]
@@ -63,6 +81,8 @@ public class FOVManager : MonoBehaviour
 	ComputeBuffer rangesBuffer;
 	private List<float> angleCosines = new List<float>();
 	ComputeBuffer angleCosinesBuffer;
+	private List<float> omniRanges = new List<float>();
+	ComputeBuffer omniRangesBuffer;
 
 	// Postprocessing
 	[Range(1.0f, 100.0f)]
@@ -77,10 +97,14 @@ public class FOVManager : MonoBehaviour
 	private Material blurMaterial;
 
 	// Shaders and materials
+	private Texture2DArray FOVMapArray => settings?.FOVMapArray ?? FOVMapArray_legacy;
+
 	[SerializeField]
 	[Tooltip("(Essential) FOV map Texture2DArray for runtime FOV mapping")]
-	private Texture2DArray FOVMapArray;
-
+	[System.Obsolete("This field is deprecated. Use FOVBakeSettings.FOVMapArray instead for better workflow.")]
+	[FormerlySerializedAs("FOVMapArray")]
+	private Texture2DArray FOVMapArray_legacy;
+	
 	[SerializeField]
 	[Tooltip("(Do not modify) FOV mapping shader")]
 	private Shader FOVShader;
@@ -128,6 +152,12 @@ public class FOVManager : MonoBehaviour
 
 	private void Start()
 	{
+		if (settings == null)
+		{
+			Debug.LogError("FOVMappingSettings not assigned to FOVManager!");
+			return;
+		}
+
 		FindAllFOVAgents();
 		
 		if (FOVMapArray)
@@ -155,6 +185,7 @@ public class FOVManager : MonoBehaviour
 		forwardsBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float) * 3, ComputeBufferType.IndirectArguments);
 		rangesBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float), ComputeBufferType.IndirectArguments);
 		angleCosinesBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float), ComputeBufferType.IndirectArguments);
+		omniRangesBuffer = new ComputeBuffer(maxFriendlyAgentCount, sizeof(float), ComputeBufferType.IndirectArguments);
 
 		EnableFOV();
 	}
@@ -175,6 +206,7 @@ public class FOVManager : MonoBehaviour
 		if (forwardsBuffer != null) forwardsBuffer.Release();
 		if (rangesBuffer != null) rangesBuffer.Release();
 		if (angleCosinesBuffer != null)	angleCosinesBuffer.Release();
+		if (omniRangesBuffer != null) omniRangesBuffer.Release();
 
 		if (outputAlphaBuffer != null) outputAlphaBuffer.Release();
 	}
@@ -219,10 +251,17 @@ public class FOVManager : MonoBehaviour
 			ranges.Clear();
 			forwards.Clear();
 			angleCosines.Clear();
+			omniRanges.Clear();
 
+			// Debug.Log($"Begin FOVManager.SetShaderValues with {FOVAgents.Count} agents");
 			for (int i = 0; i < FOVAgents.Count; i++)
 			{
 				FOVAgent agent = FOVAgents[i];
+				if (agent == null) {
+					Debug.LogError($"FOVAgent at index {i} is null! Agent list Count: {FOVAgents.Count}.");
+					continue;
+				}
+				
 				if (agent.enabled && agent.contributeToFOV)
 				{
 					Vector3 relativePos = Vector3.Scale(transform.InverseTransformPoint(agent.transform.position), transform.lossyScale); // Position of the agent relative to the FOW plane
@@ -232,6 +271,7 @@ public class FOVManager : MonoBehaviour
 					forwards.Add(relativeForward);
 					ranges.Add(agent.sightRange);
 					angleCosines.Add(Mathf.Cos(agent.sightAngle * 0.5f * Mathf.Deg2Rad));
+					omniRanges.Add(agent.omniSightRange);
 				}
 			}
 
@@ -247,11 +287,13 @@ public class FOVManager : MonoBehaviour
 			forwardsBuffer.SetData(forwards);
 			rangesBuffer.SetData(ranges);
 			angleCosinesBuffer.SetData(angleCosines);
+			omniRangesBuffer.SetData(omniRanges);
 
 			FOVMaterial.SetBuffer("_Positions", positionsBuffer);
 			FOVMaterial.SetBuffer("_Forwards", forwardsBuffer);
 			FOVMaterial.SetBuffer("_Ranges", rangesBuffer);
 			FOVMaterial.SetBuffer("_AngleCosines", angleCosinesBuffer);
+			FOVMaterial.SetBuffer("_OmniRanges", omniRangesBuffer);
 
 			// Set uniform values for FOVMaterial
 			FOVMaterial.SetFloat("_PlaneSizeX", transform.lossyScale.x);
@@ -376,6 +418,12 @@ public class FOVManager : MonoBehaviour
 		{
 			FOVAgent agent = visibilityTargetAgents[i];
 
+			// Agent may have died but we can't update visibilityTargetAgents during async callback so have to re-check
+			if (!agent) {
+				// Debug.Log("Agent died while updating FOW.");
+				continue;
+			}
+
 			bool isInSight = alphaSamples[i] <= agent.disappearAlphaThreshold;
 			agent.SetUnderFOW(isInSight);
 		}
@@ -392,10 +440,15 @@ public class FOVManager : MonoBehaviour
 	public void AddFOVAgent(FOVAgent agent)
 	{
 		FOVAgents.Add(agent);
+		// Debug.Log($"Added FOV agent: {agent.transform.parent?.name ?? agent.name}. Post-Count: {FOVAgents.Count}");
 	}
 
 	public void RemoveFOVAgent(FOVAgent agent) 
 	{
+		//Debug stuff
+		//Find agent index before removing
+		int agentIndex = FOVAgents.IndexOf(agent);
+		// Debug.Log($"Removing FOV agent: {agent.transform.parent?.name ?? agent.name} at index {agentIndex}. Pre-Count: {FOVAgents.Count}");
 		FOVAgents.Remove(agent);
 	}
 
@@ -413,5 +466,6 @@ public class FOVManager : MonoBehaviour
 	{
 		FOVAgents.Clear();
 	}
+
 }
 }

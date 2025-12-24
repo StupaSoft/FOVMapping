@@ -26,6 +26,12 @@ public class FOVAgent : MonoBehaviour
 	private float _sightAngle = 240.0f;
 	public float sightAngle { get => _sightAngle; set => _sightAngle = value; }
 
+	[Tooltip("360-degree sight range (always full circle, still blocked by obstacles). Only relevant when shorter than normal sight range.")]
+	[SerializeField]
+	[Range(0.0f, 1000.0f)]
+	private float _omniSightRange = 0.0f;
+	public float omniSightRange { get => _omniSightRange; set => _omniSightRange = value; }
+
 	[Tooltip("Will this agent disappear if it is in a fog of war(set to true for hostile agents and false for friendly agents)?")]
 	[SerializeField]
 	private bool _disappearInFOW = false;
@@ -42,6 +48,15 @@ public class FOVAgent : MonoBehaviour
 	private void Awake()
 	{
 		meshRenderers = GetComponentsInChildren<MeshRenderer>().ToList();
+	}
+
+	/// <summary>
+	/// Override the mesh renderers with contents from a new array. Typicaly from a FindComponentsInXYZ<> call.
+	/// </summary>
+	/// <param name="meshRenderers">Array of mesh renderers to overwrite the current list with.</param>
+	public void OverrideMeshRenderers(MeshRenderer[] meshRenderers) {
+		this.meshRenderers.Clear();
+		this.meshRenderers.AddRange(meshRenderers);
 	}
 
 	[HideInInspector]
