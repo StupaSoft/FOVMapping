@@ -43,7 +43,7 @@ public class FOVMappingEditorWindow : EditorWindow
             
             if (fovManager == null)
             {
-                EditorGUILayout.HelpBox("Please assign a FOV Manager (Plane GameObject) for FOV mapping.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Place FOVMapping/Runtime/Prefabs/FOWPlane or FOVMappingURP/Prefabs/FOWPlane into the scene first.", MessageType.Warning);
                 EditorGUILayout.EndVertical();
                 return;
             }
